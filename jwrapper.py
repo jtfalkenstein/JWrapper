@@ -2,8 +2,14 @@ import time
 from collections import namedtuple
 from pprint import PrettyPrinter
 
+
 class WrappedFunc(object):
     def __init__(self, func, owner):
+        """
+        Args:
+            func(function): The function to wrap
+            owner(WrappedObject): The containing instance wrapping this function
+        """
         super(WrappedFunc, self).__init__()
         self.__owner = owner
         self.__func = func
@@ -31,16 +37,12 @@ class WrappedFunc(object):
                 else:
                     result = self._return_value
             else:
-                if self.__bound and self.__owner._log_verbose:
+                if self.__bound and self.__owner._burrow_deep:
                     result = self.__func.im_func(self.__owner, *args, **kwargs)
                 else:
                     result = self.__func(*args, **kwargs)
             self._wrapped_data['last_return_value'] = result
             execution_time = (time.time() - start_time)
-            self.__owner.print_padded_message(
-                'Call to {} finished in {} seconds. \nCall print_wrapper_info() for more info.'.format(
-                    self.__func.__name__,
-                    execution_time))
         except Exception as e:
             self._wrapped_data['exception'] = e
             execution_time = (time.time() - start_time)
@@ -48,18 +50,22 @@ class WrappedFunc(object):
             if 'result' not in locals() and 'e' in locals():
                 result = e
             self.__owner._wrapped_calls[self.__func.__name__].append(
-                {'args':args,
-                 'kwargs':kwargs,
-                 'result':result,
-                 'execution_time':execution_time}
+                {'args': args,
+                 'kwargs': kwargs,
+                 'result': result,
+                 'execution_time': execution_time}
             )
             self.__owner._access_log.append(
-                "{0}() called. For details see {0}._wrapped_data".format(self.__func.__name__)
+                "->{0}() called. For details see {0}._wrapped_data".format(self.__func.__name__)
             )
             if 'e' in locals():
                 self.__owner.print_padded_message('Exception stored. Call get_wrapper_info() for info.')
                 raise e
-
+            else:
+                self.__owner.print_padded_message(
+                    'Call to {} finished in {} seconds. \nCall print_wrapper_info() for more info.'.format(
+                        self.__func.__name__,
+                        execution_time))
             return result
 
     def fake_return_value(self, value):
@@ -77,7 +83,7 @@ class WrappedAttribute(object):
 
     def log(self, message, instance):
         instance._access_log.append(
-            message
+            '--' + message
         )
 
     def __get__(self, instance, owner):
@@ -96,11 +102,11 @@ class WrappedAttribute(object):
 
 
 class WrappedObject(object):
-    def __init__(self, wrapped):
+    def __init__(self, wrapped, burrow_deep=False):
         super(WrappedObject, self).__init__()
         self._wrapped_calls = {}
         self._access_log = []
-        self._log_verbose = False
+        self._burrow_deep = burrow_deep
         self.__class__ = type('Wrapped_' + type(wrapped).__name__, (WrappedObject,), {})
 
         for attr_name in dir(wrapped):
@@ -118,7 +124,12 @@ class WrappedObject(object):
                     setattr(self.__class__, attr_name, WrappedAttribute(attr_name, attr))
                 else:
                     setattr(self, attr_name, attr)
-        self.print_padded_message(type(wrapped).__name__ + " wrapped.")
+        self._access_log.append(('-' * 25) + 'INSTANTIATION COMPLETE' + ('-' * 25))
+        self.print_padded_message(type(wrapped).__name__ + " wrapped.", closed=not self._burrow_deep)
+        if self._burrow_deep:
+            self.print_padded_message("Currently burrowing deep (self is exchanged and all calls will be logged.)" +
+                                      "\nCall burrow_deep(False) to disable.", opened=False, closed=False)
+            self._access_log.append('-' * 80)
 
     def print_wrapper_info(self):
         print('*' * 80)
@@ -161,10 +172,10 @@ class WrappedObject(object):
     def clear_log(self):
         del self._access_log[:]
 
-    def log_verbose(self, verbose=True):
-        self._log_verbose = verbose
+    def burrow_deep(self, verbose=True):
+        self._burrow_deep = verbose
 
 
-def jwrap(object_class, *args, **kwargs):
+def jwrap(object_class, burrow_deep=False, *args, **kwargs):
     new_object = object_class(*args, **kwargs)
-    return WrappedObject(new_object)
+    return WrappedObject(new_object, burrow_deep)
