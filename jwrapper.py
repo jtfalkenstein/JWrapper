@@ -2,15 +2,15 @@ import time
 from collections import namedtuple
 from pprint import PrettyPrinter
 
-call_tuple = namedtuple('call_tuple', ['args', 'kwargs', 'returned', 'execution_time'])
-
-
 class WrappedFunc(object):
     def __init__(self, func, owner):
         super(WrappedFunc, self).__init__()
         self.__owner = owner
         self.__func = func
-        self.__bound = True if func.im_self is not None else False
+        try:
+            self.__bound = True if func.im_self is not None else False
+        except AttributeError:
+            self.__bound = False
         self._wrapped_data = {
             'call_count': 0
         }
@@ -48,7 +48,10 @@ class WrappedFunc(object):
             if 'result' not in locals() and 'e' in locals():
                 result = e
             self.__owner._wrapped_calls[self.__func.__name__].append(
-                call_tuple(args, kwargs, result, execution_time)
+                {'args':args,
+                 'kwargs':kwargs,
+                 'result':result,
+                 'execution_time':execution_time}
             )
             self.__owner._access_log.append(
                 "{0}() called. For details see {0}._wrapped_data".format(self.__func.__name__)
@@ -58,12 +61,13 @@ class WrappedFunc(object):
                 raise e
 
             return result
-    
+
     def fake_return_value(self, value):
         self._return_value = value
-    
+
     def reset_return_value(self):
         self._return_value = None
+
 
 class WrappedAttribute(object):
     def __init__(self, name, obj):
@@ -80,8 +84,10 @@ class WrappedAttribute(object):
         return self.__obj
 
     def __set__(self, instance, value):
+        new_val_str = (str(value) if len(str(value)) < 100 else str(value)[:75] + '...')
+        old_val_str = (str(self.__obj) if len(str(self.__obj)) < 100 else str(self.__obj)[:75] + '...')
         self.log("{} set to value: {}. Previous value was: {}".format(
-            self.__name, str(value), str(self.__obj)), instance)
+            self.__name, new_val_str, old_val_str, instance), instance)
         self.__obj = value
 
     def __delete__(self, instance):
@@ -97,7 +103,6 @@ class WrappedObject(object):
         self._log_verbose = False
         self.__class__ = type('Wrapped_' + type(wrapped).__name__, (WrappedObject,), {})
 
-
         for attr_name in dir(wrapped):
             if not attr_name.startswith('__'):
                 attr = getattr(wrapped, attr_name)
@@ -105,26 +110,45 @@ class WrappedObject(object):
                     self._wrapped_calls[attr_name] = []
                     setattr(self, attr_name, WrappedFunc(attr, self))
                 elif attr_name not in ['_access_log', '_wrapped_calls']:
-                    self._access_log.append(attr_name + ' initialized with value: ' + str(attr))
+                    self._access_log.append(
+                        attr_name +
+                        ' initialized with value: '
+                        + (str(attr) if len(str(attr)) < 100 else "VALUE TOO LONG.")
+                    )
                     setattr(self.__class__, attr_name, WrappedAttribute(attr_name, attr))
                 else:
                     setattr(self, attr_name, attr)
         self.print_padded_message(type(wrapped).__name__ + " wrapped.")
 
     def print_wrapper_info(self):
+        print('*' * 80)
         print('Wrapper info: ')
         print('\nMethod Calls:')
         printer = PrettyPrinter(indent=2)
-        printer.pprint({call: value for call, value in self._wrapped_calls.iteritems() if value})
+        dict_to_report = {}
+        for method, calls in self._wrapped_calls.iteritems():
+            dict_to_report[method] = []
+            if not calls:
+                continue
+            for index, call in enumerate(calls):
+                dict_to_report[method].append([])
+                dict_to_report[method][index] = {}
+                for key, val in call.iteritems():
+                    new_val = val if len(str(
+                        val)) < 100 else "VALUE TOO LONG. See _wrapped_calls['{method}'][{index}]['{item}'] for actual data.".format(
+                        method=method, index=index, item=key)
+                    dict_to_report[method][index][key] = new_val
+        printer.pprint(dict_to_report)
         print('\nAccess log:')
         for l in self._access_log:
-            if('\n' in l):
+            if ('\n' in l):
                 for line in l.split('\n'):
                     print ('\t' + line)
             else:
                 print('\t' + l)
         print('\nCall data can be accessed from self._wrapped_calls')
         print('Last call information can be found on the _wrapped_data attribute on individual methods.')
+        print('*' * 80)
 
     def print_padded_message(self, message, closed=True, opened=True):
         self._access_log.append(message.split('\n')[0])
@@ -139,6 +163,7 @@ class WrappedObject(object):
 
     def log_verbose(self, verbose=True):
         self._log_verbose = verbose
+
 
 def jwrap(object_class, *args, **kwargs):
     new_object = object_class(*args, **kwargs)
