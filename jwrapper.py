@@ -25,7 +25,10 @@ class WrappedFunc(object):
         try:
             if self._return_value:
                 self.__owner.print_padded_message("Faking {} value.".format(self.__func.__name__))
-                result = self.__return_value
+                if callable(self._return_value):
+                    result = self._return_value(*args, **kwargs)
+                else:
+                    result = self._return_value
             else:
                 result = self.__func(*args, **kwargs)
             self._wrapped_data['last_return_value'] = result
@@ -44,7 +47,7 @@ class WrappedFunc(object):
                 call_tuple(args, kwargs, result, execution_time)
             )
             self.__owner._access_log.append(
-                "{} called. Details: {}".format(self.__func.__name__, str(self._wrapped_data))
+                "{}() called. Details: {}".format(self.__func.__name__, str(self._wrapped_data))
             )
             if 'e' in locals():
                 self.__owner.print_padded_message('Exception stored. Call get_wrapper_info() for info.')
@@ -109,12 +112,16 @@ class WrappedObject(object):
         printer.pprint({call: value for call, value in self._wrapped_calls.iteritems() if value})
         print('\nAccess log:')
         for l in self._access_log:
-            print ('\t' + l)
+            if('\n' in l):
+                for line in l.split('\n'):
+                    print ('\t' + line)
+            else:
+                print('\t' + l)
         print('\nCall data can be accessed from self._wrapped_calls')
         print('Last call information can be found on the _wrapped_data attribute on individual methods.')
 
     def print_padded_message(self, message, closed=True, opened=True):
-        self._access_log.append(message)
+        self._access_log.append(message.split('\n')[0])
         if opened:
             message = ('*' * 80) + '\n' + message
         if closed:
