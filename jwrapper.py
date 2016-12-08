@@ -118,5 +118,4 @@ class WrappedObject(object):
 
 def jwrap(object_class, *args, **kwargs):
     new_object = object_class(*args, **kwargs)
-    # Add it to __builtin__ to make it accessible cross-module
     return WrappedObject(new_object)
