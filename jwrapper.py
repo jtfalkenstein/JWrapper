@@ -10,6 +10,7 @@ class WrappedFunc(object):
         super(WrappedFunc, self).__init__()
         self.__owner = owner
         self.__func = func
+        self.__bound = True if func.im_self is not None else False
         self._wrapped_data = {
             'call_count': 0
         }
@@ -30,7 +31,10 @@ class WrappedFunc(object):
                 else:
                     result = self._return_value
             else:
-                result = self.__func(*args, **kwargs)
+                if self.__bound and self.__owner._log_verbose:
+                    result = self.__func.im_func(self.__owner, *args, **kwargs)
+                else:
+                    result = self.__func(*args, **kwargs)
             self._wrapped_data['last_return_value'] = result
             execution_time = (time.time() - start_time)
             self.__owner.print_padded_message(
@@ -47,7 +51,7 @@ class WrappedFunc(object):
                 call_tuple(args, kwargs, result, execution_time)
             )
             self.__owner._access_log.append(
-                "{}() called. Details: {}".format(self.__func.__name__, str(self._wrapped_data))
+                "{0}() called. For details see {0}._wrapped_data".format(self.__func.__name__)
             )
             if 'e' in locals():
                 self.__owner.print_padded_message('Exception stored. Call get_wrapper_info() for info.')
@@ -90,7 +94,9 @@ class WrappedObject(object):
         super(WrappedObject, self).__init__()
         self._wrapped_calls = {}
         self._access_log = []
+        self._log_verbose = False
         self.__class__ = type('Wrapped_' + type(wrapped).__name__, (WrappedObject,), {})
+
 
         for attr_name in dir(wrapped):
             if not attr_name.startswith('__'):
@@ -131,6 +137,8 @@ class WrappedObject(object):
     def clear_log(self):
         del self._access_log[:]
 
+    def log_verbose(self, verbose=True):
+        self._log_verbose = verbose
 
 def jwrap(object_class, *args, **kwargs):
     new_object = object_class(*args, **kwargs)
