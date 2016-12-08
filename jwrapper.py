@@ -13,6 +13,7 @@ class WrappedFunc(object):
         self._wrapped_data = {
             'call_count': 0
         }
+        self._return_value = None
 
     def __call__(self, *args, **kwargs):
         start_time = time.time()
@@ -22,8 +23,11 @@ class WrappedFunc(object):
         })
         self._wrapped_data['call_count'] += 1
         try:
-
-            result = self.__func(*args, **kwargs)
+            if self._return_value:
+                self.__owner.print_padded_message("Faking {} value.".format(self.__func.__name__))
+                result = self.__return_value
+            else:
+                result = self.__func(*args, **kwargs)
             self._wrapped_data['last_return_value'] = result
             execution_time = (time.time() - start_time)
             self.__owner.print_padded_message(
@@ -47,7 +51,12 @@ class WrappedFunc(object):
                 raise e
 
             return result
-
+    
+    def fake_return_value(self, value):
+        self._return_value = value
+    
+    def reset_return_value(self):
+        self._return_value = None
 
 class WrappedAttribute(object):
     def __init__(self, name, obj):
