@@ -1,7 +1,36 @@
+from __future__ import print_function
 import time
 from collections import namedtuple
 from pprint import PrettyPrinter
 import inspect
+
+
+class Printer(object):
+    _printing_progress = False
+    _printer = PrettyPrinter(indent=1)
+
+    @classmethod
+    def stop_printing_progress(cls):
+        if cls._printing_progress:
+            print('\n')
+            cls._printing_progress = False
+
+    @classmethod
+    def print_progress(cls):
+        cls._printing_progress = True
+        print('.', end='')
+
+    @classmethod
+    def print_padded_message(cls, message, closed=True, opened=True):
+        cls.stop_printing_progress()
+        to_log = message.split('\n')[0]
+        print((('*' * 80) + '\n' if opened else "") + message + ('\n' + ('*' * 80) if closed else ""))
+        return to_log
+
+    @classmethod
+    def print_message(cls, message):
+        cls.stop_printing_progress()
+        cls._printer.pprint(message)
 
 
 class WrappedFunc(object):
@@ -20,8 +49,12 @@ class WrappedFunc(object):
             'calls': []
         }
         self._return_value = None
+        self._alert = False
 
     def __call__(self, *args, **kwargs):
+        Printer.print_progress()
+        if self._alert:
+            Printer.print_padded_message("!!! {} was called.".format(self._orig_func.__name__))
         start_time = time.time()
         self._wrapped_data['last_call'] = {
             'args': args,
@@ -30,7 +63,8 @@ class WrappedFunc(object):
         self._wrapped_data['call_count'] += 1
         try:
             if self._return_value:
-                self._owner._print_padded_message("Faking {} value.".format(self._orig_func.__name__))
+                self._owner._access_log.append(
+                    Printer.print_padded_message("Faking {} value.".format(self._orig_func.__name__)))
                 if callable(self._return_value):
                     result = self._return_value(*args, **kwargs)
                 else:
@@ -62,16 +96,17 @@ class WrappedFunc(object):
             self._owner._wrapped_calls[self._orig_func.__name__].append(call_info)
             self._wrapped_data['calls'].append(call_info)
             self._owner._access_log.append(
-                "->{0}() called. For details see {0}._wrapped_data".format(self._orig_func.__name__)
+                "-> {0}() called. For details see {0}._wrapped_data".format(self._orig_func.__name__)
             )
             if 'e' in locals():
-                self._owner._print_padded_message('Exception stored. Call get_wrapper_info() for info.')
+                self._owner._access_log.append(
+                    Printer.print_padded_message('Exception stored. Call get_wrapper_info() for info.'))
                 raise e
             else:
-                self._owner._print_padded_message(
-                    'Call to {} finished in {} seconds. \nCall print_wrapper_info() for more info.'.format(
+                self._owner._access_log.append(Printer.print_padded_message(
+                    '\tCall to {} finished in {} seconds. \nCall print_wrapper_info() for more info.'.format(
                         self._orig_func.__name__,
-                        execution_time))
+                        execution_time)))
             return result
 
     def fake_return_value(self, value):
@@ -84,11 +119,10 @@ class WrappedFunc(object):
         return inspect.getcallargs(self._orig_func)
 
     def print_call_data(self):
-        printer = PrettyPrinter(indent=2)
-        print("-" * 80)
-        print("Call data for " + self._orig_func.__name__ + ":")
-        print("Access call data on _wrapped_data.")
-        print('\n')
+        Printer.print_message("-" * 80)
+        Printer.print_message("Call data for " + self._orig_func.__name__ + ":")
+        Printer.print_message("Access call data on _wrapped_data.")
+        Printer.print_message('\n')
         cleaned_data = []
         for index, call in enumerate(self._wrapped_data['calls']):
             call_data = {}
@@ -96,25 +130,31 @@ class WrappedFunc(object):
                 newVal = val if len(str(val)) < 100 \
                     else "VALUE TOO LONG. See _wrapped_data[{}]['{}'] for value.".format(index, key)
                 call_data[key] = newVal
-        printer.pprint(cleaned_data)
-        print('-' * 80)
+            cleaned_data.append(call_data)
+        Printer.print_message(cleaned_data)
+        Printer.print_message('-' * 80)
+
+    def set_alert(self, on=True):
+        self._alert = on
 
 
-class AttributeDescriptor(object):
+class WrappedAttribute(object):
     def __init__(self, name, obj):
-        super(AttributeDescriptor, self).__init__()
+        super(WrappedAttribute, self).__init__()
         self.__name = name
         self.__obj = obj
 
     def log(self, message, instance):
         instance._access_log.append(
-            '--' + message
+            '-- ' + message
         )
 
     def __get__(self, instance, owner):
+        Printer.print_progress()
         return self.__obj
 
     def __set__(self, instance, value):
+        Printer.print_progress()
         new_val_str = (str(value) if len(str(value)) < 100 else str(value)[:75] + '...')
         old_val_str = (str(self.__obj) if len(str(self.__obj)) < 100 else str(self.__obj)[:75] + '...')
         self.log("{} set to value: {}. Previous value was: {}".format(
@@ -122,6 +162,7 @@ class AttributeDescriptor(object):
         self.__obj = value
 
     def __delete__(self, instance):
+        Printer.print_progress()
         self.log(self.__name + ' deleted.', instance)
         del self.__obj
 
@@ -146,26 +187,28 @@ class WrappedObject(object):
                         ' initialized with value: '
                         + (str(attr) if len(str(attr)) < 100 else "VALUE TOO LONG.")
                     )
-                    setattr(self.__class__, attr_name, AttributeDescriptor(attr_name, attr))
+                    setattr(self.__class__, attr_name, WrappedAttribute(attr_name, attr))
                 else:
                     setattr(self, attr_name, attr)
         self._access_log.append(('-' * 25) + 'INSTANTIATION COMPLETE' + ('-' * 25))
-        self._print_padded_message(type(wrapped).__name__ + " wrapped.", closed=not self._burrow_deep)
+        self._access_log.append(
+            Printer.print_padded_message(type(wrapped).__name__ + " wrapped.", closed=not self._burrow_deep))
         if self._burrow_deep:
-            self._print_padded_message("Currently burrowing deep (self is exchanged and all calls will be logged.)" +
-                                       "\nCall burrow_deep(False) to disable.", opened=False, closed=False)
+            self._access_log.append(Printer.print_padded_message(
+                "Currently burrowing deep (self is exchanged and all calls will be logged.)" +
+                '\nCall burrow_deep(False) to disable.', opened=False, closed=False))
             self._access_log.append('-' * 80)
 
     def print_wrapper_info(self):
-        print('*' * 80)
-        print('Wrapper info: ')
-        print('\nMethod Calls:')
+        Printer.print_message('*' * 80)
+        Printer.print_message('Wrapper info: ')
+        Printer.print('Method Calls:')
         printer = PrettyPrinter(indent=2)
         dict_to_report = {}
         for method, calls in self._wrapped_calls.iteritems():
-            dict_to_report[method] = []
             if not calls:
                 continue
+            dict_to_report[method] = []
             for index, call in enumerate(calls):
                 dict_to_report[method].append([])
                 dict_to_report[method][index] = {}
@@ -174,31 +217,24 @@ class WrappedObject(object):
                         val)) < 100 else "VALUE TOO LONG. See _wrapped_calls['{method}'][{index}]['{item}'] for actual data.".format(
                         method=method, index=index, item=key)
                     dict_to_report[method][index][key] = new_val
-        printer.pprint(dict_to_report)
-        print('\nAccess log:')
+        Printer.print_message(dict_to_report)
+        Printer.print_message('\nAccess log:')
         for l in self._access_log:
             if ('\n' in l):
                 for line in l.split('\n'):
-                    print ('\t' + line)
+                    print('\t' + line)
             else:
                 print('\t' + l)
         print('\nCall data can be accessed from self._wrapped_calls')
-        print('Last call information can be found on the _wrapped_data attribute on individual methods.')
+        print(
+            'Last call information can be found on the _wrapped_data attribute on individual methods.')
         print('*' * 80)
-
-    def _print_padded_message(self, message, closed=True, opened=True):
-        self._access_log.append(message.split('\n')[0])
-        if opened:
-            message = ('*' * 80) + '\n' + message
-        if closed:
-            message += '\n' + ('*' * 80)
-        print(message)
 
     def clear_log(self):
         del self._access_log[:]
 
-    def burrow_deep(self, verbose=True):
-        self._burrow_deep = verbose
+    def burrow_deep(self, activated=True):
+        self._burrow_deep = activated
 
 
 def jwrap(cls_or_obj, burrow_deep=False, *args, **kwargs):
