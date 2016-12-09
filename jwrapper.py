@@ -3,6 +3,7 @@ from collections import namedtuple
 from pprint import PrettyPrinter
 import inspect
 
+
 class WrappedFunc(object):
     def __init__(self, func, owner):
         """
@@ -11,37 +12,39 @@ class WrappedFunc(object):
             owner(WrappedObject): The containing instance wrapping this function
         """
         super(WrappedFunc, self).__init__()
-        self.__owner = owner
-        self.__func = func
-        try:
-            self.__bound = True if func.im_self is not None else False
-        except AttributeError:
-            self.__bound = False
+        self._owner = owner
+        self._orig_func = func
+        self._is_bound = True if inspect.ismethod(func) else False
         self._wrapped_data = {
-            'call_count': 0
+            'call_count': 0,
+            'calls': []
         }
         self._return_value = None
 
     def __call__(self, *args, **kwargs):
         start_time = time.time()
-        self._wrapped_data.update({
-            'last_args': args,
-            'last_kwargs': kwargs,
-        })
+        self._wrapped_data['last_call'] = {
+            'args': args,
+            'kwargs': kwargs,
+        }
         self._wrapped_data['call_count'] += 1
         try:
             if self._return_value:
-                self.__owner.print_padded_message("Faking {} value.".format(self.__func.__name__))
+                self._owner._print_padded_message("Faking {} value.".format(self._orig_func.__name__))
                 if callable(self._return_value):
                     result = self._return_value(*args, **kwargs)
                 else:
                     result = self._return_value
             else:
-                if self.__bound and self.__owner._burrow_deep:
-                    result = self.__func.im_func(self.__owner, *args, **kwargs)
+                # If the function is method and the WrappedObject is set to burrow deep...
+                if self._is_bound and self._owner._burrow_deep:
+                    # Use the WrappedObject as the value of "self" rather than the
+                    # encapsulated object the method is bound to
+                    result = self._orig_func.im_func(self._owner, *args, **kwargs)
                 else:
-                    result = self.__func(*args, **kwargs)
-            self._wrapped_data['last_return_value'] = result
+                    # Otherwise, call the function regularly
+                    result = self._orig_func(*args, **kwargs)
+            self._wrapped_data['last_call']['return_value'] = result
             execution_time = (time.time() - start_time)
         except Exception as e:
             self._wrapped_data['exception'] = e
@@ -49,22 +52,25 @@ class WrappedFunc(object):
         finally:
             if 'result' not in locals() and 'e' in locals():
                 result = e
-            self.__owner._wrapped_calls[self.__func.__name__].append(
-                {'args': args,
-                 'kwargs': kwargs,
-                 'result': result,
-                 'execution_time': execution_time}
-            )
-            self.__owner._access_log.append(
-                "->{0}() called. For details see {0}._wrapped_data".format(self.__func.__name__)
+            call_info = {
+                'args': args,
+                'kwargs': kwargs,
+                'result': result,
+                'execution_time': execution_time
+            }
+
+            self._owner._wrapped_calls[self._orig_func.__name__].append(call_info)
+            self._wrapped_data['calls'].append(call_info)
+            self._owner._access_log.append(
+                "->{0}() called. For details see {0}._wrapped_data".format(self._orig_func.__name__)
             )
             if 'e' in locals():
-                self.__owner.print_padded_message('Exception stored. Call get_wrapper_info() for info.')
+                self._owner._print_padded_message('Exception stored. Call get_wrapper_info() for info.')
                 raise e
             else:
-                self.__owner.print_padded_message(
+                self._owner._print_padded_message(
                     'Call to {} finished in {} seconds. \nCall print_wrapper_info() for more info.'.format(
-                        self.__func.__name__,
+                        self._orig_func.__name__,
                         execution_time))
             return result
 
@@ -74,10 +80,29 @@ class WrappedFunc(object):
     def reset_return_value(self):
         self._return_value = None
 
+    def get_call_args(self):
+        return inspect.getcallargs(self._orig_func)
 
-class WrappedAttribute(object):
+    def print_call_data(self):
+        printer = PrettyPrinter(indent=2)
+        print("-" * 80)
+        print("Call data for " + self._orig_func.__name__ + ":")
+        print("Access call data on _wrapped_data.")
+        print('\n')
+        cleaned_data = []
+        for index, call in enumerate(self._wrapped_data['calls']):
+            call_data = {}
+            for key, val in call.iteritems():
+                newVal = val if len(str(val)) < 100 \
+                    else "VALUE TOO LONG. See _wrapped_data[{}]['{}'] for value.".format(index, key)
+                call_data[key] = newVal
+        printer.pprint(cleaned_data)
+        print('-' * 80)
+
+
+class AttributeDescriptor(object):
     def __init__(self, name, obj):
-        super(WrappedAttribute, self).__init__()
+        super(AttributeDescriptor, self).__init__()
         self.__name = name
         self.__obj = obj
 
@@ -121,14 +146,14 @@ class WrappedObject(object):
                         ' initialized with value: '
                         + (str(attr) if len(str(attr)) < 100 else "VALUE TOO LONG.")
                     )
-                    setattr(self.__class__, attr_name, WrappedAttribute(attr_name, attr))
+                    setattr(self.__class__, attr_name, AttributeDescriptor(attr_name, attr))
                 else:
                     setattr(self, attr_name, attr)
         self._access_log.append(('-' * 25) + 'INSTANTIATION COMPLETE' + ('-' * 25))
-        self.print_padded_message(type(wrapped).__name__ + " wrapped.", closed=not self._burrow_deep)
+        self._print_padded_message(type(wrapped).__name__ + " wrapped.", closed=not self._burrow_deep)
         if self._burrow_deep:
-            self.print_padded_message("Currently burrowing deep (self is exchanged and all calls will be logged.)" +
-                                      "\nCall burrow_deep(False) to disable.", opened=False, closed=False)
+            self._print_padded_message("Currently burrowing deep (self is exchanged and all calls will be logged.)" +
+                                       "\nCall burrow_deep(False) to disable.", opened=False, closed=False)
             self._access_log.append('-' * 80)
 
     def print_wrapper_info(self):
@@ -161,7 +186,7 @@ class WrappedObject(object):
         print('Last call information can be found on the _wrapped_data attribute on individual methods.')
         print('*' * 80)
 
-    def print_padded_message(self, message, closed=True, opened=True):
+    def _print_padded_message(self, message, closed=True, opened=True):
         self._access_log.append(message.split('\n')[0])
         if opened:
             message = ('*' * 80) + '\n' + message
@@ -176,9 +201,9 @@ class WrappedObject(object):
         self._burrow_deep = verbose
 
 
-def jwrap(object, burrow_deep=False, *args, **kwargs):
-    if inspect.isclass(object):
-        new_object = object(*args, **kwargs)
+def jwrap(cls_or_obj, burrow_deep=False, *args, **kwargs):
+    if inspect.isclass(cls_or_obj):
+        new_object = cls_or_obj(*args, **kwargs)
     else:
-        new_object = object
+        new_object = cls_or_obj
     return WrappedObject(new_object, burrow_deep)
