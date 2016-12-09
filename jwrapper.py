@@ -96,17 +96,12 @@ class WrappedFunc(object):
             self._owner._wrapped_calls[self._orig_func.__name__].append(call_info)
             self._wrapped_data['calls'].append(call_info)
             self._owner._access_log.append(
-                "-> {0}() called. For details see {0}._wrapped_data".format(self._orig_func.__name__)
+                "-> {0}() called. For details see {0}._wrapped_data. Timing: {}".format(self._orig_func.__name__, execution_time)
             )
             if 'e' in locals():
                 self._owner._access_log.append(
                     Printer.print_padded_message('Exception stored. Call get_wrapper_info() for info.'))
                 raise e
-            else:
-                self._owner._access_log.append(Printer.print_padded_message(
-                    '\tCall to {} finished in {} seconds. \nCall print_wrapper_info() for more info.'.format(
-                        self._orig_func.__name__,
-                        execution_time)))
             return result
 
     def fake_return_value(self, value):
@@ -202,7 +197,7 @@ class WrappedObject(object):
     def print_wrapper_info(self):
         Printer.print_message('*' * 80)
         Printer.print_message('Wrapper info: ')
-        Printer.print('Method Calls:')
+        print('Method Calls:')
         printer = PrettyPrinter(indent=2)
         dict_to_report = {}
         for method, calls in self._wrapped_calls.iteritems():
