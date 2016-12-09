@@ -1,7 +1,7 @@
 import time
 from collections import namedtuple
 from pprint import PrettyPrinter
-
+import inspect
 
 class WrappedFunc(object):
     def __init__(self, func, owner):
@@ -176,6 +176,9 @@ class WrappedObject(object):
         self._burrow_deep = verbose
 
 
-def jwrap(object_class, burrow_deep=False, *args, **kwargs):
-    new_object = object_class(*args, **kwargs)
+def jwrap(object, burrow_deep=False, *args, **kwargs):
+    if inspect.isclass(object):
+        new_object = object(*args, **kwargs)
+    else:
+        new_object = object
     return WrappedObject(new_object, burrow_deep)
