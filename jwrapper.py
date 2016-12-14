@@ -1,6 +1,5 @@
 from __future__ import print_function
 import time
-from collections import namedtuple
 from pprint import PrettyPrinter
 import inspect
 
@@ -8,7 +7,7 @@ import inspect
 class Printer(object):
     _printing_progress = False
     _printer = PrettyPrinter(indent=1)
-
+    _progress_char_count = 0
     @classmethod
     def stop_printing_progress(cls):
         if cls._printing_progress:
@@ -18,7 +17,13 @@ class Printer(object):
     @classmethod
     def print_progress(cls):
         cls._printing_progress = True
+        cls._progress_char_count += 1
+        if cls._progress_char_count > 80:
+            cls._progress_char_count = 0
+            print('\n.', end='')
+            return
         print('.', end='')
+
 
     @classmethod
     def print_padded_message(cls, message, closed=True, opened=True):
@@ -87,20 +92,23 @@ class WrappedFunc(object):
             if 'result' not in locals() and 'e' in locals():
                 result = e
             call_info = {
+                'function': self._orig_func.__name__,
                 'args': args,
                 'kwargs': kwargs,
                 'result': result,
                 'execution_time': execution_time
             }
-
             self._owner._wrapped_calls[self._orig_func.__name__].append(call_info)
             self._wrapped_data['calls'].append(call_info)
             self._owner._access_log.append(
-                "-> {0}() called. For details see {0}._wrapped_data. Timing: {1}".format(self._orig_func.__name__, execution_time)
+                "-> {0}() called. For details see {0}._wrapped_data. Timing: {1}".format(self._orig_func.__name__,
+                                                                                         execution_time)
             )
             if 'e' in locals():
+                self._owner._last_failure = call_info
                 self._owner._access_log.append(
-                    Printer.print_padded_message('Exception stored. Call get_wrapper_info() for info.'))
+                    Printer.print_padded_message(
+                        'Exception stored: {}.\nCall print_last_failure() for info.'.format(str(e))))
                 raise e
             return result
 
@@ -117,13 +125,14 @@ class WrappedFunc(object):
         Printer.print_message("-" * 80)
         Printer.print_message("Call data for " + self._orig_func.__name__ + ":")
         Printer.print_message("Access call data on _wrapped_data.")
-        Printer.print_message('\n')
+        print('\n')
         cleaned_data = []
         for index, call in enumerate(self._wrapped_data['calls']):
             call_data = {}
             for key, val in call.iteritems():
                 newVal = val if len(str(val)) < 100 \
-                    else "VALUE TOO LONG. See _wrapped_data[{}]['{}'] for value.".format(index, key)
+                    else "VALUE TOO LONG. See {}._wrapped_data['calls'][{}]['{}'] for value.".format(
+                    self._orig_func.__name__, index, key)
                 call_data[key] = newVal
             cleaned_data.append(call_data)
         Printer.print_message(cleaned_data)
@@ -139,7 +148,7 @@ class WrappedAttribute(object):
         self.__name = name
         self.__obj = obj
 
-    def log(self, message, instance):
+    def _log(self, message, instance):
         instance._access_log.append(
             '-- ' + message
         )
@@ -152,13 +161,13 @@ class WrappedAttribute(object):
         Printer.print_progress()
         new_val_str = (str(value) if len(str(value)) < 100 else str(value)[:75] + '...')
         old_val_str = (str(self.__obj) if len(str(self.__obj)) < 100 else str(self.__obj)[:75] + '...')
-        self.log("{} set to value: {}. Previous value was: {}".format(
+        self._log("{} set to value: {}. Previous value was: {}".format(
             self.__name, new_val_str, old_val_str, instance), instance)
         self.__obj = value
 
     def __delete__(self, instance):
         Printer.print_progress()
-        self.log(self.__name + ' deleted.', instance)
+        self._log(self.__name + ' deleted.', instance)
         del self.__obj
 
 
@@ -168,6 +177,7 @@ class WrappedObject(object):
         self._wrapped_calls = {}
         self._access_log = []
         self._burrow_deep = burrow_deep
+        self._last_failure = {}
         self.__class__ = type('Wrapped_' + type(wrapped).__name__, (WrappedObject,), {})
 
         for attr_name in dir(wrapped):
@@ -224,6 +234,9 @@ class WrappedObject(object):
         print(
             'Last call information can be found on the _wrapped_data attribute on individual methods.')
         print('*' * 80)
+
+    def print_last_failure(self):
+        Printer.print_message(self._last_failure)
 
     def clear_log(self):
         del self._access_log[:]
