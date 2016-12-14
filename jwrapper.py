@@ -96,7 +96,7 @@ class WrappedFunc(object):
             self._owner._wrapped_calls[self._orig_func.__name__].append(call_info)
             self._wrapped_data['calls'].append(call_info)
             self._owner._access_log.append(
-                "-> {0}() called. For details see {0}._wrapped_data. Timing: {}".format(self._orig_func.__name__, execution_time)
+                "-> {0}() called. For details see {0}._wrapped_data. Timing: {1}".format(self._orig_func.__name__, execution_time)
             )
             if 'e' in locals():
                 self._owner._access_log.append(
