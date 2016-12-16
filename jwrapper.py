@@ -4,6 +4,7 @@ from pprint import PrettyPrinter
 import inspect
 import __builtin__
 import traceback
+import sys
 
 class Printer(object):
     _printing_progress = False
@@ -112,6 +113,7 @@ class WrappedFunc(object):
                     log_message = 'Exception stored: {}.\nCall print_last_failure() for info.'.format(str(e))
                     self._owner._access_log.append(log_message)
                     Printer.print_padded_message(log_message)
+                    e.__traceback__ = sys.exc_info()[2]
                 raise e
             return result
 
