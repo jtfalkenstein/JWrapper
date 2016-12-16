@@ -105,10 +105,11 @@ class WrappedFunc(object):
                                                                                          execution_time)
             )
             if 'e' in locals():
-                self._owner._last_failure = call_info
-                self._owner._access_log.append(
-                    Printer.print_padded_message(
-                        'Exception stored: {}.\nCall print_last_failure() for info.'.format(str(e))))
+                if not self._owner._last_failure:
+                    self._owner._last_failure = call_info
+                    log_message = 'Exception stored: {}.\nCall print_last_failure() for info.'.format(str(e))
+                    self._owner._access_log.append(log_message)
+                    Printer.print_padded_message(log_message)
                 raise e
             return result
 
