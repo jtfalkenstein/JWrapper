@@ -132,7 +132,7 @@ class WrappedFunc(object):
         cleaned_data = []
         for index, call in enumerate(self._wrapped_data['calls']):
             call_data = {}
-            for key, val in call.iteritems():
+            for key, val in call.items():
                 newVal = val if len(str(val)) < 100 \
                     else "VALUE TOO LONG. See {}._wrapped_data['calls'][{}]['{}'] for value.".format(
                     self._orig_func.__name__, index, key)
@@ -214,14 +214,14 @@ class WrappedObject(object):
         print('Method Calls:')
         printer = PrettyPrinter(indent=2)
         dict_to_report = {}
-        for method, calls in self._wrapped_calls.iteritems():
+        for method, calls in self._wrapped_calls.items():
             if not calls:
                 continue
             dict_to_report[method] = []
             for index, call in enumerate(calls):
                 dict_to_report[method].append([])
                 dict_to_report[method][index] = {}
-                for key, val in call.iteritems():
+                for key, val in call.items():
                     new_val = val if len(str(
                         val)) < 100 else "VALUE TOO LONG. See _wrapped_calls['{method}'][{index}]['{item}'] for actual data.".format(
                         method=method, index=index, item=key)
@@ -240,7 +240,11 @@ class WrappedObject(object):
         print('*' * 80)
 
     def print_last_failure(self):
-        Printer.print_message(self._last_failure)
+        dict_minus_tb = {k:v for k, v in self._last_failure.items() if not k == 'traceback'}
+        formatted_dict = PrettyPrinter().pformat(dict_minus_tb)
+        tb = self._last_failure['traceback']
+        print ('Failure info:\n' + formatted_dict)
+        print(tb)
 
     def clear_log(self):
         del self._access_log[:]
