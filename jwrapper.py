@@ -15,14 +15,14 @@ class Printer(object):
             cls._printing_progress = False
 
     @classmethod
-    def print_progress(cls):
+    def print_progress(cls, symbol='.'):
         cls._printing_progress = True
         cls._progress_char_count += 1
         if cls._progress_char_count > 80:
             cls._progress_char_count = 0
-            print('\n.', end='')
+            print('\n' + symbol, end='')
             return
-        print('.', end='')
+        print(symbol, end='')
 
 
     @classmethod
@@ -57,7 +57,7 @@ class WrappedFunc(object):
         self._alert = False
 
     def __call__(self, *args, **kwargs):
-        Printer.print_progress()
+        Printer.print_progress('F')
         if self._alert:
             Printer.print_padded_message("!!! {} was called.".format(self._orig_func.__name__))
         start_time = time.time()
