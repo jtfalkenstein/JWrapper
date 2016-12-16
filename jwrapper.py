@@ -113,7 +113,7 @@ class WrappedFunc(object):
                     log_message = 'Exception stored: {}.\nCall print_last_failure() for info.'.format(str(e))
                     self._owner._access_log.append(log_message)
                     Printer.print_padded_message(log_message)
-                    e.__traceback__ = sys.exc_info()[2]
+                e.__traceback__ = sys.exc_info()[2]
                 raise e
             return result
 
