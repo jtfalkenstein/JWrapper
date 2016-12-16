@@ -2,7 +2,8 @@ from __future__ import print_function
 import time
 from pprint import PrettyPrinter
 import inspect
-
+import __builtin__
+import traceback
 
 class Printer(object):
     _printing_progress = False
@@ -106,6 +107,7 @@ class WrappedFunc(object):
             )
             if 'e' in locals():
                 if not self._owner._last_failure:
+                    call_info['traceback'] = traceback.format_exc()
                     self._owner._last_failure = call_info
                     log_message = 'Exception stored: {}.\nCall print_last_failure() for info.'.format(str(e))
                     self._owner._access_log.append(log_message)
@@ -175,6 +177,7 @@ class WrappedAttribute(object):
 class WrappedObject(object):
     def __init__(self, wrapped, burrow_deep=False):
         super(WrappedObject, self).__init__()
+        __builtin__.print_last_failure = self.print_last_failure
         self._wrapped_calls = {}
         self._access_log = []
         self._burrow_deep = burrow_deep
