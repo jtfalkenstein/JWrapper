@@ -1,15 +1,17 @@
 from __future__ import print_function
-import time
-from pprint import PrettyPrinter
-import inspect
+
 import __builtin__
+import inspect
+import time
 import traceback
-import sys
+from pprint import PrettyPrinter
+
 
 class Printer(object):
     _printing_progress = False
     _printer = PrettyPrinter(indent=1)
     _progress_char_count = 0
+
     @classmethod
     def stop_printing_progress(cls):
         if cls._printing_progress:
@@ -25,7 +27,6 @@ class Printer(object):
             print('\n' + symbol, end='')
             return
         print(symbol, end='')
-
 
     @classmethod
     def print_padded_message(cls, message, closed=True, opened=True):
@@ -184,6 +185,7 @@ class WrappedObject(object):
         self._burrow_deep = burrow_deep
         self._last_failure = {}
         self.__class__ = type('Wrapped_' + type(wrapped).__name__, (WrappedObject,), {})
+        self._wrapped = wrapped
 
         for attr_name in dir(wrapped):
             if not attr_name.startswith('__'):
@@ -241,10 +243,10 @@ class WrappedObject(object):
         print('*' * 80)
 
     def print_last_failure(self):
-        dict_minus_tb = {k:v for k, v in self._last_failure.items() if not k == 'traceback'}
+        dict_minus_tb = {k: v for k, v in self._last_failure.items() if not k == 'traceback'}
         formatted_dict = PrettyPrinter().pformat(dict_minus_tb)
         tb = self._last_failure['traceback']
-        print ('Failure info:\n' + formatted_dict)
+        print('Failure info:\n' + formatted_dict)
         print(tb)
 
     def clear_log(self):
@@ -252,6 +254,15 @@ class WrappedObject(object):
 
     def burrow_deep(self, activated=True):
         self._burrow_deep = activated
+
+    def get_unwrapped(self):
+        unwrapped = self._wrapped
+        for attr_name in dir(self):
+            orig = getattr(self, attr_name)
+            if inspect.isdatadescriptor(orig):
+                setattr(unwrapped, attr_name, orig)
+        unwrapped._rewrap = lambda: jwrap(unwrapped, self._burrow_deep)
+        return unwrapped
 
 
 def jwrap(cls_or_obj, burrow_deep=False, *args, **kwargs):
