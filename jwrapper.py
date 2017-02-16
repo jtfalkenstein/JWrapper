@@ -101,7 +101,7 @@ class WrappedFunc(object):
                 'result': result,
                 'execution_time': execution_time
             }
-            self._owner._wrapped_calls[self._orig_func.__name__].append(call_info)
+            self._owner._wrapped_calls.get(self._orig_func.__name__, []).append(call_info)
             self._wrapped_data['calls'].append(call_info)
             self._owner._access_log.append(
                 "-> {0}() called. For details see {0}._wrapped_data. Timing: {1}".format(self._orig_func.__name__,
