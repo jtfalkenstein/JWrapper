@@ -60,7 +60,7 @@ class WrappedFunc(object):
         self._alert = False
 
     def __call__(self, *args, **kwargs):
-        Printer.print_progress('F')
+        Printer.print_progress('-')
         if self._alert:
             Printer.print_padded_message("!!! {} was called.".format(self._orig_func.__name__))
         start_time = time.time()
@@ -188,7 +188,7 @@ class WrappedObject(object):
         self._wrapped = wrapped
 
         for attr_name in dir(wrapped):
-            if not attr_name.startswith('__'):
+            if not attr_name.startswith('__') or attr_name in ['__enter__', '__exit__']:
                 attr = getattr(wrapped, attr_name)
                 if callable(attr):
                     self._wrapped_calls[attr_name] = []
