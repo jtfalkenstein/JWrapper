@@ -188,7 +188,7 @@ class WrappedObject(object):
         self._wrapped = wrapped
 
         for attr_name in dir(wrapped):
-            if not attr_name.startswith('__') or attr_name in ['__enter__', '__exit__']:
+            if not attr_name.startswith('__'):
                 attr = getattr(wrapped, attr_name)
                 if callable(attr):
                     self._wrapped_calls[attr_name] = []
@@ -202,6 +202,10 @@ class WrappedObject(object):
                     setattr(self.__class__, attr_name, WrappedAttribute(attr_name, attr))
                 else:
                     setattr(self, attr_name, attr)
+            elif attr_name in ['__enter__', '__exit__']:
+                original = getattr(wrapped, attr_name).im_func
+                new_method = lambda slf, *a, **k: im_func(self, *a, **k)
+                setattr(self, attr_name, new_method)
         self._access_log.append(('-' * 25) + 'INSTANTIATION COMPLETE' + ('-' * 25))
         self._access_log.append(
             Printer.print_padded_message(type(wrapped).__name__ + " wrapped.", closed=not self._burrow_deep))
