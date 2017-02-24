@@ -205,8 +205,8 @@ class WrappedObject(object):
                     setattr(self, attr_name, attr)
             elif attr_name in ['__enter__', '__exit__']:
                 original = getattr(wrapped, attr_name)
-                new_method = types.MethodType(WrappedFunc(original, self), self)
-                setattr(self, attr_name, new_method)
+                new_method = WrappedFunc(original, self)
+                setattr(self.__class__, attr_name, new_method)
         self._access_log.append(('-' * 25) + 'INSTANTIATION COMPLETE' + ('-' * 25))
         self._access_log.append(
             Printer.print_padded_message(type(wrapped).__name__ + " wrapped.", closed=not self._burrow_deep))
