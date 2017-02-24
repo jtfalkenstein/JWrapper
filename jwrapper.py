@@ -5,8 +5,7 @@ import inspect
 import time
 import traceback
 from pprint import PrettyPrinter
-import types
-
+from datetime import datetime
 
 class Printer(object):
     _printing_progress = False
@@ -22,6 +21,8 @@ class Printer(object):
     @classmethod
     def print_progress(cls, symbol='.'):
         cls._printing_progress = True
+        if cls._progress_char_count == 0:
+            print('[' + datetime.now().isoformat() + ']')
         cls._progress_char_count += 1
         if cls._progress_char_count > 80:
             cls._progress_char_count = 0
