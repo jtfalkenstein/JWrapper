@@ -5,6 +5,7 @@ import inspect
 import time
 import traceback
 from pprint import PrettyPrinter
+import types
 
 
 class Printer(object):
@@ -203,8 +204,8 @@ class WrappedObject(object):
                 else:
                     setattr(self, attr_name, attr)
             elif attr_name in ['__enter__', '__exit__']:
-                original = getattr(wrapped, attr_name).im_func
-                new_method = lambda slf, *a, **k: im_func(self, *a, **k)
+                original = getattr(wrapped, attr_name)
+                new_method = types.MethodType(WrappedFunc(original, self), self)
                 setattr(self, attr_name, new_method)
         self._access_log.append(('-' * 25) + 'INSTANTIATION COMPLETE' + ('-' * 25))
         self._access_log.append(
