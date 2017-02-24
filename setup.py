@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='jwrapper',
-    version='1.1.0',
+    version='1.1.1',
     description='A small Python tool to make console inspection SO MUCH EASIER.',
     author='Jon Falkenstein',
     author_email='jtfalkenstein@gmail.com',

@@ -20,9 +20,9 @@ class Printer(object):
 
     @classmethod
     def print_progress(cls, symbol='.'):
+        if cls._progress_char_count == 0 or cls._printing_progress:
+            print('[' + datetime.now().time().isoformat() + ']')
         cls._printing_progress = True
-        if cls._progress_char_count == 0:
-            print('[' + datetime.now().isoformat() + ']')
         cls._progress_char_count += 1
         if cls._progress_char_count > 80:
             cls._progress_char_count = 0
