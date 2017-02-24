@@ -5,12 +5,26 @@ import inspect
 import time
 import traceback
 from pprint import PrettyPrinter
-from datetime import datetime
+from datetime import datetime, timedelta
+
+
+def timer():
+    initialized = datetime.now()
+    yield initialized
+    while True:
+        if initialized - datetime.now() >= timedelta(minutes=5):
+            reset = (yield datetime.now())
+            if reset:
+                initialized = datetime.now()
+        else:
+            yield ""
+
 
 class Printer(object):
     _printing_progress = False
     _printer = PrettyPrinter(indent=1)
     _progress_char_count = 0
+    _timer = timer()
 
     @classmethod
     def stop_printing_progress(cls):
@@ -20,8 +34,7 @@ class Printer(object):
 
     @classmethod
     def print_progress(cls, symbol='.'):
-        if cls._progress_char_count == 0 or cls._printing_progress:
-            print('[' + datetime.now().time().isoformat() + ']')
+        print(cls._timer.next(), end='')
         cls._printing_progress = True
         cls._progress_char_count += 1
         if cls._progress_char_count > 80:
