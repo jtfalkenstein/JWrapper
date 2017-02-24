@@ -34,7 +34,8 @@ class Printer(object):
 
     @classmethod
     def print_progress(cls, symbol='.'):
-        print(cls._timer.next(), end='')
+        if symbol != '.':
+            print(cls._timer.next(), end='')
         cls._printing_progress = True
         cls._progress_char_count += 1
         if cls._progress_char_count > 80:
