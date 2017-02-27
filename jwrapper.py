@@ -12,10 +12,10 @@ def timer():
     initialized = datetime.now()
     yield initialized
     while True:
-        if initialized - datetime.now() >= timedelta(minutes=5):
-            reset = (yield datetime.now())
+        if initialized - datetime.now() >= timedelta(minutes=1):
+            reset = (yield datetime.now().time())
             if reset:
-                initialized = datetime.now()
+                initialized = datetime.now().time()
         else:
             yield ""
 
