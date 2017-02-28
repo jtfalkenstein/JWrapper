@@ -6,7 +6,7 @@ import time
 import traceback
 from pprint import PrettyPrinter
 from datetime import datetime, timedelta
-
+import sys
 
 def timer():
     initialized = datetime.now()
@@ -130,7 +130,7 @@ class WrappedFunc(object):
                     log_message = 'Exception stored: {}.\nCall print_last_failure() for info.'.format(str(e))
                     self._owner._access_log.append(log_message)
                     Printer.print_padded_message(log_message)
-                raise e
+                raise sys.exc_info()
             return result
 
     def fake_return_value(self, value):
