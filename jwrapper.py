@@ -13,7 +13,7 @@ def timer():
     yield initialized
     while True:
         if initialized - datetime.now() >= timedelta(minutes=1):
-            reset = (yield datetime.now().time())
+            yield datetime.now().time()
             if reset:
                 initialized = datetime.now().time()
         else:
@@ -130,7 +130,8 @@ class WrappedFunc(object):
                     log_message = 'Exception stored: {}.\nCall print_last_failure() for info.'.format(str(e))
                     self._owner._access_log.append(log_message)
                     Printer.print_padded_message(log_message)
-                raise sys.exc_info()
+                type, val, tb = sys.exc_info()
+                raise type, val, tb
             return result
 
     def fake_return_value(self, value):
