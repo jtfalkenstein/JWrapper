@@ -205,7 +205,9 @@ class WrappedObject(object):
         self._wrapped = wrapped
 
         for attr_name in dir(wrapped):
-            if not attr_name.startswith('__'):
+            if inspect.isdatadescriptor(getattr(type(wrapped), attr_name)):
+                setattr(self.__class__, attr_name, getattr(type(wrapped), attr_name))
+            elif not attr_name.startswith('__'):
                 attr = getattr(wrapped, attr_name)
                 if callable(attr):
                     self._wrapped_calls[attr_name] = []
