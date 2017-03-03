@@ -10,12 +10,12 @@ import sys
 
 def timer():
     initialized = datetime.now()
-    yield initialized
+    yield initialized.time()
+    last_logged = initialized
     while True:
-        if initialized - datetime.now() >= timedelta(minutes=1):
-            yield datetime.now().time()
-            if reset:
-                initialized = datetime.now().time()
+        if last_logged - datetime.now() >= timedelta(minutes=1):
+            last_logged = datetime.now()
+            yield last_logged.time()
         else:
             yield ""
 
