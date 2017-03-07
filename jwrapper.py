@@ -201,7 +201,7 @@ class WrappedObject(object):
         self._access_log = []
         self._burrow_deep = burrow_deep
         self._last_failure = {}
-        self.__class__ = type('Wrapped_' + type(wrapped).__name__, (WrappedObject,), {})
+        self.__class__ = type('Wrapped_' + type(wrapped).__name__, (WrappedObject, type(wrapped)), {})
         self._wrapped = wrapped
 
         for attr_name in dir(wrapped):
