@@ -74,6 +74,8 @@ class WrappedFunc(object):
         }
         self._return_value = None
         self._alert = False
+        self.default_args = []
+        self.default_kwargs = {}
 
     def __call__(self, *args, **kwargs):
         Printer.print_progress('-')
@@ -98,7 +100,10 @@ class WrappedFunc(object):
                 if self._is_bound and self._owner._burrow_deep:
                     # Use the WrappedObject as the value of "self" rather than the
                     # encapsulated object the method is bound to
-                    result = self._orig_func.im_func(self._owner, *args, **kwargs)
+                    args_to_use = args or self.default_args
+                    kwargs_to_use = dict(**self.default_kwargs)
+                    kwargs_to_use.update(kwargs)
+                    result = self._orig_func.im_func(self._owner, *args_to_use, **kwargs_to_use)
                 else:
                     # Otherwise, call the function regularly
                     result = self._orig_func(*args, **kwargs)
@@ -166,6 +171,13 @@ class WrappedFunc(object):
     @property
     def last_return_value(self):
         return self._wrapped_data['last_call'].get('return_value')
+
+    def set_default_args_and_kwargs(self, *args, **kwargs):
+        self.default_args = args
+        self.default_kwargs = kwargs
+
+    def clear_default_args_and_kwargs(self):
+        self.default_args, self.default_kwargs = [], {}
 
 
 class WrappedAttribute(object):
