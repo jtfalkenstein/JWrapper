@@ -163,6 +163,10 @@ class WrappedFunc(object):
     def set_alert(self, on=True):
         self._alert = on
 
+    @property
+    def last_return_value(self):
+        return self._wrapped_data['last_call'].get('return_value')
+
 
 class WrappedAttribute(object):
     def __init__(self, name, obj):
